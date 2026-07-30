@@ -2,7 +2,7 @@ import React from 'react';
 import { Send, ShieldAlert, ExternalLink } from 'lucide-react';
 
 export const TelegramAccessDenied = () => {
-  const botUrl = import.meta.env.VITE_TELEGRAM_BOT_URL || 'https://t.me/TGminiApp_bot';
+  const botUrl = import.meta.env.VITE_TELEGRAM_BOT_URL || 'https://t.me/GoldSwaps_bot';
 
   return (
     <div className="min-h-screen w-full bg-[#0d0d12] text-white flex flex-col items-center justify-center p-6 select-none relative overflow-hidden">
