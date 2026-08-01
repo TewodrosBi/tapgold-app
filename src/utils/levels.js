@@ -87,28 +87,22 @@ export const RANK_TIERS = [
   },
 ];
 
-export const getLevelInfo = (score) => {
-  const currentScore = Math.max(0, score);
+export const getLevelInfo = (score, dbRankLevel = null, dbRankName = null) => {
+  const rankResult = calculateRank(score, dbRankLevel, dbRankName);
+  const currentTier = RANK_TIERS.find((t) => t.level === rankResult.level) || RANK_TIERS[0];
+  const currentScore = Math.max(currentTier.minScore, Number(score) || 0);
 
-  let tierIndex = RANK_TIERS.findIndex(
-    (tier) => currentScore >= tier.minScore && currentScore < tier.maxScore
-  );
-
-  if (tierIndex === -1) {
-    tierIndex = RANK_TIERS.length - 1;
-  }
-
-  const currentTier = RANK_TIERS[tierIndex];
+  const tierIndex = RANK_TIERS.findIndex((t) => t.level === currentTier.level);
   const nextTier = RANK_TIERS[tierIndex + 1] || null;
 
   let progress = 100;
   let remainingPoints = 0;
 
   if (nextTier) {
-    const range = currentTier.maxScore - currentTier.minScore;
+    const range = nextTier.minScore - currentTier.minScore;
     const earned = currentScore - currentTier.minScore;
     progress = Math.min(100, Math.max(0, (earned / range) * 100));
-    remainingPoints = Math.max(0, currentTier.maxScore - currentScore);
+    remainingPoints = Math.max(0, nextTier.minScore - currentScore);
   }
 
   return {
@@ -122,12 +116,38 @@ export const getLevelInfo = (score) => {
   };
 };
 
-export const calculateRank = (coins = 0) => {
-  const currentCoins = Math.max(0, Number(coins) || 0);
-  if (currentCoins >= 1000000000) return { level: 6, name: 'Legendary Creator' };
-  if (currentCoins >= 50000000) return { level: 5, name: 'Diamond Master' };
-  if (currentCoins >= 5000000) return { level: 4, name: 'Platinum Miner' };
-  if (currentCoins >= 500000) return { level: 3, name: 'Gold Miner' };
-  if (currentCoins >= 50000) return { level: 2, name: 'Silver Miner' };
-  return { level: 1, name: 'Bronze Miner' };
+export const calculateRank = (lifetimeScore = 0, dbRankLevel = null, dbRankName = null) => {
+  const currentScore = Math.max(0, Number(lifetimeScore) || 0);
+
+  // 1. Evaluate tier by lifetime cumulative score
+  let calculatedLevel = 1;
+  if (currentScore >= 1000000000) calculatedLevel = 6;
+  else if (currentScore >= 50000000) calculatedLevel = 5;
+  else if (currentScore >= 5000000) calculatedLevel = 4;
+  else if (currentScore >= 500000) calculatedLevel = 3;
+  else if (currentScore >= 50000) calculatedLevel = 2;
+  else calculatedLevel = 1;
+
+  // 2. Evaluate tier by database rank_level or rank_name if provided from Supabase
+  let dbLevel = null;
+  if (dbRankLevel && !isNaN(Number(dbRankLevel))) {
+    dbLevel = Number(dbRankLevel);
+  } else if (dbRankName && typeof dbRankName === 'string') {
+    const match = RANK_TIERS.find(
+      (t) => t.name.toLowerCase().includes(dbRankName.toLowerCase()) ||
+             t.shortName.toLowerCase().includes(dbRankName.toLowerCase())
+    );
+    if (match) dbLevel = match.level;
+  }
+
+  // 3. Ensure rank is never downgraded below explicit database rank
+  const finalLevel = Math.max(calculatedLevel, dbLevel || 1);
+  const finalTier = RANK_TIERS.find((t) => t.level === finalLevel) || RANK_TIERS[0];
+
+  return {
+    level: finalTier.level,
+    name: finalTier.name,
+    shortName: finalTier.shortName,
+    minScore: finalTier.minScore,
+  };
 };

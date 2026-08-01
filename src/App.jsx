@@ -350,11 +350,19 @@ export default function App() {
             const rechargeSpdLvl = existingPlayer.recharge_level || existingPlayer.recharge_speed_level || 1;
             const calculatedStudioLevel = existingPlayer.account_level || (1 + (tapPowerLvl - 1) + (energyCapLvl - 1) + (rechargeSpdLvl - 1));
 
-            const fetchedCoins = existingPlayer.coins ?? 0;
-            const loadedTotalCoins = existingPlayer.total_coins ?? existingPlayer.lifetime_score ?? fetchedCoins ?? 0;
-            const fetchedRankInfo = calculateRank(loadedTotalCoins);
+            const fetchedCoins = Number(existingPlayer.coins) || 0;
+            const rawLifetime = Math.max(
+              Number(existingPlayer.lifetime_score) || 0,
+              Number(existingPlayer.total_coins) || 0,
+              fetchedCoins
+            );
+
+            const dbRankLevel = existingPlayer.rank_level;
+            const dbRankName = existingPlayer.rank_name;
+            const fetchedRankInfo = calculateRank(rawLifetime, dbRankLevel, dbRankName);
             const activeRankLevel = fetchedRankInfo.level;
             const activeRankName = fetchedRankInfo.name;
+            const loadedTotalCoins = Math.max(rawLifetime, fetchedRankInfo.minScore);
 
             setDebugLog(`Loaded Player: ID ${telegramId} (@${username}) | Rank: ${activeRankName} (Lvl ${activeRankLevel}) | Studio Lvl: ${calculatedStudioLevel} | Coins: ${fetchedCoins}`);
 
@@ -505,9 +513,9 @@ export default function App() {
     const calculatedStudioLevel = overrides.account_level || (1 + (currentUpgrades['tap_power'] || 0) + (currentUpgrades['energy_limit'] || 0) + (currentUpgrades['recharge_speed'] || 0));
     const calculatedMaxEnergy = baseMaxEnergy + ((currentUpgrades['energy_limit'] || 0) * 50);
 
-    const rankInfo = calculateRank(safeTotalCoins);
-    const rankLevel = rankInfo.level;
-    const rankName = rankInfo.name;
+    const rankInfo = calculateRank(safeTotalCoins, overrides.rank_level, overrides.rank_name);
+    const rankLevel = overrides.rank_level || rankInfo.level;
+    const rankName = overrides.rank_name || rankInfo.name;
 
     const currentPetCards = overrides.pet_cards !== undefined ? overrides.pet_cards : petUpgradeCards;
 
@@ -626,7 +634,7 @@ export default function App() {
   // Rank Calculation Logic strictly on lifetimeScore
   const levelInfo = useMemo(() => getLevelInfo(Math.floor(lifetimeScore)), [lifetimeScore]);
 
-  // Non-Blocking Floating Notification Toast for Rank Promotion
+  // Non-Blocking Floating Notification Toast for Rank Promotion & DB Rank Sync
   useEffect(() => {
     const currentTier = levelInfo.currentTier;
     if (prevLevelRef.current && prevLevelRef.current.level !== currentTier.level) {
@@ -635,10 +643,16 @@ export default function App() {
         soundEngine.playBoostSound();
         setRankToast(`🎉 Rank Up! You reached ${currentTier.name}!`);
         setTimeout(() => setRankToast(null), 3500);
+
+        // Explicitly update rank_level and rank_name in Supabase on rank promotion
+        syncToSupabase({
+          rank_level: currentTier.level,
+          rank_name: currentTier.name,
+        });
       }
     }
     prevLevelRef.current = currentTier;
-  }, [levelInfo.currentTier]);
+  }, [levelInfo.currentTier, syncToSupabase]);
 
   // Sync score, diamonds & petUpgradeCards to backend
   useEffect(() => {
