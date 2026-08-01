@@ -548,12 +548,28 @@ export default function App() {
         .upsert(payload, { onConflict: 'telegram_id' })
         .select();
 
-      // Missing column fallback handler for table schema resilience
+      // Dual update to profiles table to guarantee pet_cards column sync across schema designs
+      try {
+        await supabase
+          .from('profiles')
+          .update({
+            coins: Math.floor(currentScore),
+            diamonds: currentDiamonds,
+            pet_cards: currentPetCards,
+            lifetime_score: Math.floor(safeTotalCoins),
+            total_coins: Math.floor(safeTotalCoins),
+            rank_level: rankLevel,
+            rank_name: rankName,
+            equipped_skin: equippedSkin,
+          })
+          .eq('id', telegramId);
+      } catch (e) {}
+
+      // Missing column fallback handler for legacy table schema resilience
       if (error && error.message && error.message.toLowerCase().includes('column')) {
         const fallbackPayload = { ...payload };
         delete fallbackPayload.total_coins;
         delete fallbackPayload.equipped_skin;
-        delete fallbackPayload.pet_cards;
         delete fallbackPayload.is_bot_active;
         const retry = await supabase
           .from('players')
@@ -568,7 +584,7 @@ export default function App() {
         setDebugLog(`SUPABASE SAVE FAILED: ${error.message}`);
       } else {
         console.log("SUPABASE SAVE SUCCESSFUL!", data);
-        setDebugLog(`SUPABASE SAVE SUCCESSFUL! ID ${telegramId} (@${username}) | Rank: ${rankName} (Lvl ${rankLevel}) | Studio Lvl: ${calculatedStudioLevel} | Coins: ${Math.floor(currentScore)}`);
+        setDebugLog(`SUPABASE SAVE SUCCESSFUL! ID ${telegramId} (@${username}) | Rank: ${rankName} (Lvl ${rankLevel}) | Studio Lvl: ${calculatedStudioLevel} | Coins: ${Math.floor(currentScore)} | Cards: ${currentPetCards}`);
       }
     } catch (err) {
       console.error("SUPABASE SAVE FAILED:", err);
