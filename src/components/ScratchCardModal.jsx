@@ -87,10 +87,19 @@ export const ScratchCardModal = ({
 
       try {
         confetti({
-          particleCount: prize.isJackpot ? 150 : 70,
-          spread: prize.isJackpot ? 120 : 80,
+          particleCount: prize.isJackpot ? 120 : 60,
+          spread: prize.isJackpot ? 100 : 70,
           origin: { y: 0.5 },
         });
+
+        // Stop confetti animations after 2 seconds to prevent Telegram WebView memory crashes
+        setTimeout(() => {
+          try {
+            if (typeof confetti.reset === 'function') {
+              confetti.reset();
+            }
+          } catch (e) {}
+        }, 2000);
       } catch (e) {}
 
       setTimeout(() => {

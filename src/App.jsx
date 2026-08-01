@@ -517,6 +517,7 @@ export default function App() {
     const rankLevel = overrides.rank_level || rankInfo.level;
     const rankName = overrides.rank_name || rankInfo.name;
 
+    const currentDiamonds = overrides.diamonds !== undefined ? overrides.diamonds : diamonds;
     const currentPetCards = overrides.pet_cards !== undefined ? overrides.pet_cards : petUpgradeCards;
 
     const payload = {
@@ -531,6 +532,7 @@ export default function App() {
       rank_name: rankName,
       equipped_skin: equippedSkin,
       pet_cards: currentPetCards,
+      diamonds: currentDiamonds,
       is_bot_active: isOfflineBotActive,
       tap_level: tapPowerLevel,
       energy_level: energyCapacityLevel,
@@ -733,30 +735,32 @@ export default function App() {
   // Claim Fortune Scratch Multi-Resource Reward
   const handleClaimScratchReward = useCallback((prize) => {
     if (!prize) return;
+
+    let updatedCoins = score;
+    let updatedDiamonds = diamonds;
+    let updatedCards = petUpgradeCards;
+
     if (prize.coinAmount > 0) {
+      updatedCoins = score + prize.coinAmount;
       setScore((s) => s + prize.coinAmount);
       setLifetimeScore((ls) => ls + prize.coinAmount);
     }
     if (prize.diamondAmount > 0) {
-      setDiamonds((d) => {
-        const updated = d + prize.diamondAmount;
-        localStorage.setItem('tg_diamonds', updated.toString());
-        return updated;
-      });
+      updatedDiamonds = diamonds + prize.diamondAmount;
+      setDiamonds(updatedDiamonds);
+      localStorage.setItem('tg_diamonds', updatedDiamonds.toString());
     }
     if (prize.cardAmount > 0) {
-      setPetUpgradeCards((c) => {
-        const updated = c + prize.cardAmount;
-        localStorage.setItem('tg_pet_upgrade_cards', updated.toString());
-        return updated;
-      });
+      updatedCards = petUpgradeCards + prize.cardAmount;
+      setPetUpgradeCards(updatedCards);
+      localStorage.setItem('tg_pet_upgrade_cards', updatedCards.toString());
     }
 
     setDailyCardsBoughtCount((prevCount) => {
       const newCount = prevCount + 1;
       localStorage.setItem('tg_scratch_bought_count', newCount.toString());
 
-      const safeTotal = Math.max(lifetimeScore, score);
+      const safeTotal = Math.max(lifetimeScore, score, updatedCoins);
       const currentRankLevel = calculateRank(safeTotal).level;
       const rankConfig = getScratchConfig(currentRankLevel);
 
@@ -768,7 +772,18 @@ export default function App() {
       }
       return newCount;
     });
-  }, [lifetimeScore, score]);
+
+    // Safe, try-caught database update to Supabase for pet_cards and diamonds
+    try {
+      syncToSupabase({
+        score: updatedCoins,
+        diamonds: updatedDiamonds,
+        pet_cards: updatedCards,
+      });
+    } catch (e) {
+      console.error('Scratch reward Supabase sync error:', e);
+    }
+  }, [lifetimeScore, score, diamonds, petUpgradeCards, syncToSupabase]);
 
   // Buy On-Demand Extra Scratch Card (50,000 * (scratchesToday + 1))
   const handleBuyExtraScratch = useCallback((cost) => {
