@@ -732,7 +732,7 @@ export default function App() {
     localStorage.setItem('tg_streak', JSON.stringify(newStreakData));
   }, [syncToSupabase]);
 
-  // Claim Fortune Scratch Multi-Resource Reward
+  // Claim Fortune Scratch Multi-Resource Reward (Coins, Diamonds, Pet Cards)
   const handleClaimScratchReward = useCallback((prize) => {
     if (!prize) return;
 
@@ -750,8 +750,10 @@ export default function App() {
       setDiamonds(updatedDiamonds);
       localStorage.setItem('tg_diamonds', updatedDiamonds.toString());
     }
-    if (prize.cardAmount > 0) {
-      updatedCards = petUpgradeCards + prize.cardAmount;
+
+    const wonCards = Number(prize.cardAmount || (prize.type === 'pet_cards' || prize.type === 'cards' ? prize.amount : 0)) || 0;
+    if (wonCards > 0) {
+      updatedCards = petUpgradeCards + wonCards;
       setPetUpgradeCards(updatedCards);
       localStorage.setItem('tg_pet_upgrade_cards', updatedCards.toString());
     }
@@ -773,7 +775,7 @@ export default function App() {
       return newCount;
     });
 
-    // Safe, try-caught database update to Supabase for pet_cards and diamonds
+    // Safe, try-caught database update to Supabase for pet_cards, diamonds, and score
     try {
       syncToSupabase({
         score: updatedCoins,
@@ -1286,6 +1288,9 @@ export default function App() {
         {showScratchModal && (
           <ScratchCardModal
             score={Math.floor(score)}
+            diamonds={diamonds}
+            petUpgradeCards={petUpgradeCards}
+            petCards={petUpgradeCards}
             rankLevel={levelInfo.currentLevel}
             rankName={levelInfo.currentTier.name}
             lastScratchTimestamp={lastScratchTimestamp}
@@ -1411,6 +1416,7 @@ export default function App() {
               score={Math.floor(score)}
               diamonds={diamonds}
               petUpgradeCards={petUpgradeCards}
+              petCards={petUpgradeCards}
               creatorLevel={creatorLevel}
               ownedPets={ownedPets}
               petLevels={petLevels}

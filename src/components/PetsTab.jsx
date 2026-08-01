@@ -136,6 +136,7 @@ export const PetsTab = ({
   score = 0,
   diamonds = 0,
   petUpgradeCards = 0,
+  petCards,
   creatorLevel = 1,
   ownedPets = [],
   petLevels = {},
@@ -149,6 +150,8 @@ export const PetsTab = ({
 }) => {
   const [shakingCardId, setShakingCardId] = useState(null);
   const [toast, setToast] = useState(null);
+
+  const availablePetCards = petCards !== undefined ? petCards : petUpgradeCards;
 
   const activeBot = typeof isOfflineBotActive !== 'undefined' ? isOfflineBotActive : false;
 
@@ -208,10 +211,10 @@ export const PetsTab = ({
     const coinCost = Math.floor(pet.baseCost * Math.pow(1.12, currentLevel));
     const cardCost = Math.max(1, Math.floor(currentLevel * 0.5));
 
-    if (petUpgradeCards < cardCost) {
+    if (availablePetCards < cardCost) {
       triggerHaptic('error');
       soundEngine.playEmptyEnergySound();
-      setToast(`⚠️ Missing Upgrade Cards! (Need ${cardCost} 🎴, Have ${petUpgradeCards})`);
+      setToast(`⚠️ Missing Upgrade Cards! (Need ${cardCost} 🎴, Have ${availablePetCards})`);
       setTimeout(() => setToast(null), 3000);
       setShakingCardId(pet.id);
       setTimeout(() => setShakingCardId(null), 400);
@@ -401,7 +404,7 @@ export const PetsTab = ({
           const evoInfo = getPetEvolutionInfo(currentLevel);
           const coinCost = isOwned && !isMaxed ? Math.floor(pet.baseCost * Math.pow(1.12, currentLevel)) : 0;
           const cardCost = isOwned && !isMaxed ? Math.max(1, Math.floor(currentLevel * 0.5)) : 0;
-          const hasEnoughCards = petUpgradeCards >= cardCost;
+          const hasEnoughCards = availablePetCards >= cardCost;
           const canAffordUpgrade = isOwned && !isMaxed && score >= coinCost && hasEnoughCards;
           const isShaking = shakingCardId === pet.id;
 
@@ -518,7 +521,7 @@ export const PetsTab = ({
                       {!hasEnoughCards && (
                         <div className="text-[10px] font-extrabold text-red-400 flex items-center gap-1">
                           <AlertCircle className="w-3 h-3 text-red-400" />
-                          <span>Missing Upgrade Cards (Need {cardCost} 🎴, Have {petUpgradeCards})</span>
+                          <span>Missing Upgrade Cards (Need {cardCost} 🎴, Have {availablePetCards})</span>
                         </div>
                       )}
 
